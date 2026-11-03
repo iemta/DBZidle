@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DBZdle - Devine le personnage Dragon Ball !</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dbOrange: '#ff6b00',
+                        dbYellow: '#fbc02d',
+                        dbBlue: '#1e3c72',
+                        dbDarkBlue: '#0f172a',
+                        correctGreen: '#2e7d32',
+                        wrongRed: '#c62828',
+                        partialOrange: '#d97706',
+                    },
+                    keyframes: {
+                        aura: {
+                            '0%, 100%': { boxShadow: '0 0 15px #ff6b00, 0 0 30px #fbc02d' },
+                            '50%': { boxShadow: '0 0 25px #fbc02d, 0 0 50px #ff6b00' },
+                        },
+                        popIn: {
+                            '0%': { transform: 'scale(0.8) opacity(0)' },
+                            '100%': { transform: 'scale(1) opacity(1)' },
+                        },
+                        flip: {
+                            '0%': { transform: 'rotateX(0deg)' },
+                            '50%': { transform: 'rotateX(90deg)' },
+                            '100%': { transform: 'rotateX(0deg)' }
+                        }
+                    },
+                    animation: {
+                        aura: 'aura 2s infinite ease-in-out',
+                        popIn: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                        flip: 'flip 0.5s ease-in-out forwards',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ff6b00;
+            border-radius: 4px;
+        }
+
+        .db-title-shadow {
+            text-shadow: 3px 3px 0px #ff6b00, 6px 6px 0px #000;
+        }
+
+        .card-flip {
+            perspective: 1000px;
+        }
+
+        /* Confetti Canvas overlay */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen flex flex-col items-center justify-between p-2 md:p-6 select-none">
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Header Section -->
+    <header class="w-full max-w-4xl flex flex-col items-center mb-6 text-center">
+        <div class="flex justify-between items-center w-full px-4 mb-2">
+            <button id="btn-rules" class="bg-slate-800 hover:bg-slate-700 text-dbYellow border border-dbYellow/30 p-2.5 rounded-full w-11 h-11 flex items-center justify-center transition-all shadow-lg active:scale-95" title="Comment Jouer">
+                <i class="fa-solid fa-question text-lg"></i>
+            </button>
+            <div class="flex items-center gap-2">
+                <span class="text-xs md:text-sm font-semibold bg-slate-800/80 border border-slate-700 text-dbYellow px-3 py-1.5 rounded-full shadow">
+                    <i class="fa-solid fa-calendar-day mr-1 text-dbOrange"></i> Mode Quotidien
+                </span>
+            </div>
+            <button id="btn-stats" class="bg-slate-800 hover:bg-slate-700 text-dbYellow border border-dbYellow/30 p-2.5 rounded-full w-11 h-11 flex items-center justify-center transition-all shadow-lg active:scale-95" title="Statistiques">
+                <i class="fa-solid fa-chart-simple text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Main Title -->
+        <h1 class="text-4xl md:text-6xl font-black italic tracking-wider text-dbYellow db-title-shadow mb-1 flex items-center justify-center gap-2">
+            <span>DBZ<span class="text-dbOrange">DLE</span></span>
+            <span class="text-2xl md:text-4xl">🐉</span>
+        </h1>
+        <p class="text-slate-300 text-xs md:text-sm font-medium max-w-md">Devinez le personnage mystère de Dragon Ball de la journée !</p>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-4xl flex-1 flex flex-col items-center">
+
+        <!-- Controls Bar (Reset & Hint) -->
+        <div class="w-full max-w-xl flex items-center justify-between gap-3 mb-4 px-2">
+            <button id="btn-hint" class="flex-1 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-500/30 text-amber-300 font-semibold text-xs md:text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition shadow">
+                <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                <span id="hint-text">Indice (dans 3 essais)</span>
+            </button>
+            <button id="btn-random-mode" class="bg-gradient-to-r from-dbOrange to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs md:text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
+                <i class="fa-solid fa-shuffle"></i>
+                <span>Partie Aléatoire</span>
+            </button>
+        </div>
+
+        <!-- Search Bar Component -->
+        <div class="relative w-full max-w-xl mb-6 z-30 px-2">
+            <div class="relative flex items-center">
+                <input type="text" id="character-search" 
+                    placeholder="Tapez le nom d'un personnage (ex: Goku, Vegeta, Cell...)" 
+                    class="w-full bg-slate-800/90 border-2 border-dbOrange/50 focus:border-dbYellow focus:outline-none text-white text-sm md:text-base px-4 py-3.5 pl-11 rounded-2xl shadow-2xl transition placeholder-slate-400"
+                    autocomplete="off">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 text-slate-400 text-lg"></i>
+            </div>
+
+            <!-- Autocomplete Dropdown -->
+            <div id="autocomplete-list" class="absolute left-2 right-2 mt-2 bg-slate-800/95 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto hidden divide-y divide-slate-700/50">
+                <!-- Dropdown items will be populated by JS -->
+            </div>
+        </div>
+
+        <!-- Hint Banner Display -->
+        <div id="hint-box" class="w-full max-w-xl mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs md:text-sm text-center hidden animate-popIn">
+            <i class="fa-solid fa-circle-info mr-1.5 text-amber-400"></i>
+            <span id="hint-content"></span>
+        </div>
+
+        <!-- Column Headers for Desktop -->
+        <div class="w-full grid grid-cols-6 gap-1 md:gap-2 mb-2 px-1 text-center font-bold text-[10px] md:text-xs text-slate-300 uppercase tracking-wider">
+            <div class="bg-slate-800/60 py-2 rounded-t-lg border-b-2 border-slate-600">Personnage</div>
+            <div class="bg-slate-800/60 py-2 rounded-t-lg border-b-2 border-slate-600">Genre</div>
+            <div class="bg-slate-800/60 py-2 rounded-t-lg border-b-2 border-slate-600">Race</div>
+            <div class="bg-slate-800/60 py-2 rounded-t-lg border-b-2 border-slate-600">Affiliation</div>
+            <div class="bg-slate-800/60 py-2 rounded-t-lg border-b-2 border-slate-600">Saga Début</div>
+            <div class="bg-slate-800/60 py-2 rounded-t-lg border-b-2 border-slate-600">Statut</div>
+        </div>
+
+        <!-- Guess Attempts Table / Grid -->
+        <div id="guesses-container" class="w-full flex flex-col gap-2 mb-8">
+            <!-- Guesses will be dynamically appended here -->
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-4xl text-center py-4 text-slate-500 text-xs border-t border-slate-800">
+        <p>DBZdle • Inspiré de Wordle & Loldle • Fait avec passion pour les fans de Dragon Ball</p>
+    </footer>
+
+    <!-- MODAL: Rules / Comment jouer -->
+    <div id="modal-rules" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-2xl p-6 shadow-2xl relative animate-popIn">
+            <button class="close-modal absolute top-4 right-4 text-slate-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-2xl font-bold text-dbYellow mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-scroll text-dbOrange"></i> Comment Jouer ?
+            </h2>
+            <div class="space-y-3 text-slate-300 text-sm overflow-y-auto max-h-[70vh] pr-1">
+                <p>Trouvez le personnage mystère Dragon Ball du jour !</p>
+                <div class="bg-slate-900/60 p-3 rounded-xl space-y-2 border border-slate-700/50">
+                    <p class="font-semibold text-white">Couleurs des indices :</p>
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-md bg-emerald-600 flex items-center justify-center text-xs font-bold">✓</span>
+                        <span><strong class="text-emerald-400">Vert :</strong> Correspondance exacte</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-md bg-amber-600 flex items-center justify-center text-xs font-bold">~</span>
+                        <span><strong class="text-amber-400">Orange :</strong> Correspondance partielle (ex: au moins une race/affiliation en commun)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-md bg-rose-700 flex items-center justify-center text-xs font-bold">✕</span>
+                        <span><strong class="text-rose-400">Rouge :</strong> Aucune correspondance</span>
+                    </div>
+                </div>
+                <p>Un nouvel indice facultatif se débloque après <strong>3 essais</strong> !</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Victory / Game Over -->
+    <div id="modal-victory" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border-2 border-dbOrange w-full max-w-md rounded-2xl p-6 shadow-2xl text-center relative animate-popIn">
+            <div class="w-20 h-20 mx-auto -mt-12 bg-slate-900 border-2 border-dbYellow rounded-full flex items-center justify-center text-4xl shadow-xl animate-aura mb-3" id="victory-avatar">
+                🐉
+            </div>
+            <h2 class="text-3xl font-extrabold text-dbYellow mb-1">VICTOIRE !</h2>
+            <p class="text-slate-300 text-sm mb-4">Vous avez trouvé <strong id="victory-char-name" class="text-dbOrange font-bold text-base">Goku</strong> !</p>
+            
+            <div class="bg-slate-900/80 rounded-xl p-4 mb-6 border border-slate-700/60 grid grid-cols-2 gap-3 text-center">
+                <div>
+                    <span class="text-xs text-slate-400 uppercase tracking-wider block">Essais</span>
+                    <span id="victory-attempts" class="text-2xl font-black text-white">4</span>
+                </div>
+                <div>
+                    <span class="text-xs text-slate-400 uppercase tracking-wider block">Mode</span>
+                    <span id="victory-mode" class="text-2xl font-black text-dbYellow">Quotidien</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button id="btn-share" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-share-nodes"></i> Partager le Résultat
+                </button>
+                <button id="btn-play-again" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-rotate-right"></i> Rejouer (Mode Aléatoire)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Stats -->
+    <div id="modal-stats" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl relative animate-popIn">
+            <button class="close-modal absolute top-4 right-4 text-slate-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-2xl font-bold text-dbYellow mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-dbOrange"></i> Statistiques
+            </h2>
+            <div class="grid grid-cols-3 gap-3 text-center mb-6">
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/50">
+                    <div id="stat-played" class="text-2xl font-black text-white">0</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Parties</div>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/50">
+                    <div id="stat-wins" class="text-2xl font-black text-emerald-400">0</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Victoires</div>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/50">
+                    <div id="stat-streak" class="text-2xl font-black text-dbOrange">0</div>
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Série Actuelle</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-dbYellow text-white px-5 py-2.5 rounded-full shadow-2xl z-50 hidden text-sm font-semibold flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-message">Copié dans le presse-papier !</span>
+    </div>
+
+    <!-- JAVASCRIPT GAME LOGIC -->
+    <script>
+        // Database of Dragon Ball Characters
+        const CHARACTERS = [
+            {
+                id: 'goku',
+                name: 'Goku',
+                icon: '🥋',
+                gender: 'Homme',
+                race: ['Saiyan'],
+                affiliation: ['Z-Fighters', 'Kamé House'],
+                saga: 'Dragon Ball',
+                status: 'Vivant',
+                hint: 'Technique signature : Kaméhaméha'
+            },
+            {
+                id: 'vegeta',
+                name: 'Vegeta',
+                icon: '👑',
+                gender: 'Homme',
+                race: ['Saiyan'],
+                affiliation: ['Z-Fighters', 'Armée de Freezer'],
+                saga: 'Saga Saiyan',
+                status: 'Vivant',
+                hint: 'Prince fier de tous les Saiyans'
+            },
+            {
+                id: 'gohan',
+                name: 'Gohan',
+                icon: '📚',
+                gender: 'Homme',
+                race: ['Saiyan', 'Humain'],
+                affiliation: ['Z-Fighters'],
+                saga: 'Saga Saiyan',
+                status: 'Vivant',
+                hint: 'A éveillé le Super Saiyan 2 contre Cell'
+            },
+            {
+                id: 'piccolo',
+                name: 'Piccolo',
+                icon: '👽',
+                gender: 'Homme',
+                race: ['Namek'],
+                affiliation: ['Z-Fighters'],
+                saga: 'Dragon Ball',
+                status: 'Vivant',
+                hint: 'Ancien démon devenu le maître de Gohan'
+            },
+            {
+                id: 'krillin',
+                name: 'Krillin',
+                icon: '🧑‍oche',
+                gender: 'Homme',
+                race: ['Humain'],
+                affiliation: ['Z-Fighters', 'Kamé House'],
+                saga: 'Dragon Ball',
+                status: 'Vivant',
+                hint: 'Le meilleur ami humain de Goku (et créateur du Kienzan)'
+            },
+            {
+                id: 'frieza',
+                name: 'Freezer',
+                icon: '🦹‍♂️',
+                gender: 'Homme',
+                race: ['Arcosien'],
+                affiliation: ['Armée de Freezer', 'Univers 7'],
+                saga: 'Saga Namek',
+                status: 'Vivant',
+                hint: 'Tyran galactique responsable de la destruction de la planète Vegeta'
+            },
+            {
+                id: 'cell',
+                name: 'Cell',
+                icon: '🦗',
+                gender: 'Homme',
+                race: ['Cyborg', 'Bio-Android'],
+                affiliation: ['Cyborgs'],
+                saga: 'Saga Cell',
+                status: 'Mort',
+                hint: 'Créature parfaite du Dr. Gero absorbant C-17 et C-18'
+            },
+            {
+                id: 'majin_buu',
+                name: 'Majin Buu',
+                icon: '🍬',
+                gender: 'Homme',
+                race: ['Majin'],
+                affiliation: ['Z-Fighters'],
+                saga: 'Saga Buu',
+                status: 'Vivant',
+                hint: 'Adore les bonbons et transformé par Babidi'
+            },
+            {
+                id: 'trunks_future',
+                name: 'Trunks du Futur',
+                icon: '🗡️',
+                gender: 'Homme',
+                race: ['Saiyan', 'Humain'],
+                affiliation: ['Z-Fighters'],
+                saga: 'Saga Cell',
+                status: 'Vivant',
+                hint: 'Venu du futur avec une épée pour prévenir de la menace des Cyborgs'
+            },
+            {
+                id: 'bulma',
+                name: 'Bulma',
+                icon: '🔧',
+                gender: 'Femme',
+                race: ['Humain'],
+                affiliation: ['Capsule Corp', 'Kamé House'],
+                saga: 'Dragon Ball',
+                status: 'Vivant',
+                hint: 'Génie scientifique et créatrice du Détecteur de Dragon Balls'
+            },
+            {
+                id: 'c18',
+                name: 'C-18',
+                icon: '👱‍♀️',
+                gender: 'Femme',
+                race: ['Cyborg', 'Humain'],
+                affiliation: ['Z-Fighters', 'Cyborgs'],
+                saga: 'Saga Cell',
+                status: 'Vivant',
+                hint: 'Ancienne cyborg du Dr. Gero devenue l\'épouse de Krillin'
+            },
+            {
+                id: 'beerus',
+                name: 'Beerus',
+                icon: '🐱',
+                gender: 'Homme',
+                race: ['Dieu / Ange'],
+                affiliation: ['Univers 7'],
+                saga: 'DB Super',
+                status: 'Vivant',
+                hint: 'Le Dieu de la Destruction de l\'Univers 7 fou de nourriture terrestre'
+            },
+            {
+                id: 'whis',
+                name: 'Whis',
+                icon: '🪄',
+                gender: 'Homme',
+                race: ['Dieu / Ange'],
+                affiliation: ['Univers 7'],
+                saga: 'DB Super',
+                status: 'Vivant',
+                hint: 'L\'Ange précepteur et maître en arts martiaux de Beerus'
+            },
+            {
+                id: 'broly',
+                name: 'Broly',
+                icon: '💥',
+                gender: 'Homme',
+                race: ['Saiyan'],
+                affiliation: ['Univers 7'],
+                saga: 'DB Super',
+                status: 'Vivant',
+                hint: 'Le Saiyan Légendaire au pouvoir démesuré et incontrôlable'
+            },
+            {
+                id: 'roshi',
+                name: 'Tortue Géniale',
+                icon: '🐢',
+                gender: 'Homme',
+                race: ['Humain'],
+                affiliation: ['Kamé House', 'Z-Fighters'],
+                saga: 'Dragon Ball',
+                status: 'Vivant',
+                hint: 'Maître des arts martiaux centenaire et créateur du Kaméhaméha'
+            },
+            {
+                id: 'bardock',
+                name: 'Bardock',
+                icon: '🔴',
+                gender: 'Homme',
+                race: ['Saiyan'],
+                affiliation: ['Armée de Freezer'],
+                saga: 'Saga Saiyan',
+                status: 'Mort',
+                hint: 'Père de Goku s\'étant dressé seul contre Freezer'
+            },
+            {
+                id: 'black_goku',
+                name: 'Goku Black',
+                icon: '💍',
+                gender: 'Homme',
+                race: ['Dieu / Ange', 'Saiyan'],
+                affiliation: ['Inconnu'],
+                saga: 'DB Super',
+                status: 'Mort',
+                hint: 'Zamasu ayant volé le corps de Goku dans une autre ligne temporelle'
+            },
+            {
+                id: 'hit',
+                name: 'Hit',
+                icon: '⏱️',
+                gender: 'Homme',
+                race: ['Arcosien'],
+                affiliation: ['Inconnu'],
+                saga: 'DB Super',
+                status: 'Vivant',
+                hint: 'L\'assassin légendaire de l\'Univers 6 qui maîtrise le Saut Temporel'
+            }
+        ];
+
+        // Saga chronological order map
+        const SAGA_ORDER = {
+            'Dragon Ball': 1,
+            'Saga Saiyan': 2,
+            'Saga Namek': 3,
+            'Saga Cell': 4,
+            'Saga Buu': 5,
+            'DB Super': 6
+        };
+
+        // Game State Variables
+        let secretCharacter = null;
+        let guesses = [];
+        let isDailyMode = true;
+        let isGameOver = false;
+        let hintUsed = false;
+
+        // Local Storage Key
+        const STORAGE_KEY_STATS = 'dbzdle_user_stats';
+
+        // DOM Elements
+        const searchInput = document.getElementById('character-search');
+        const autocompleteList = document.getElementById('autocomplete-list');
+        const guessesContainer = document.getElementById('guesses-container');
+        const btnHint = document.getElementById('btn-hint');
+        const hintText = document.getElementById('hint-text');
+        const hintBox = document.getElementById('hint-box');
+        const hintContent = document.getElementById('hint-content');
+        const btnRandomMode = document.getElementById('btn-random-mode');
+        const modalVictory = document.getElementById('modal-victory');
+        const modalRules = document.getElementById('modal-rules');
+        const modalStats = document.getElementById('modal-stats');
+        const toast = document.getElementById('toast');
+
+        // Initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            initGame(true);
+            setupEventListeners();
+        });
+
+        // Initialize Game Mode
+        function initGame(daily = true) {
+            isDailyMode = daily;
+            isGameOver = false;
+            guesses = [];
+            hintUsed = false;
+            guessesContainer.innerHTML = '';
+            hintBox.classList.add('hidden');
+            searchInput.value = '';
+            searchInput.disabled = false;
+
+            if (isDailyMode) {
+                // Generate Daily Secret Character using Date Seed
+                const todayStr = new Date().toISOString().slice(0, 10);
+                let seed = 0;
+                for (let i = 0; i < todayStr.length; i++) {
+                    seed += todayStr.charCodeAt(i);
+                }
+                const index = seed % CHARACTERS.length;
+                secretCharacter = CHARACTERS[index];
+            } else {
+                // Random Character Mode
+                const randomIndex = Math.floor(Math.random() * CHARACTERS.length);
+                secretCharacter = CHARACTERS[randomIndex];
+            }
+
+            updateHintButton();
+        }
+
+        // Event Listeners setup
+        function setupEventListeners() {
+            // Search Input listener
+            searchInput.addEventListener('input', handleSearchInput);
+
+            // Document click to close autocomplete
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+                    autocompleteList.classList.add('hidden');
+                }
+            });
+
+            // Hint Button
+            btnHint.addEventListener('click', revealHint);
+
+            // Play Random Mode
+            btnRandomMode.addEventListener('click', () => {
+                initGame(false);
+                showToast("Nouvelle partie aléatoire démarrée !");
+            });
+
+            // Modals toggle buttons
+            document.getElementById('btn-rules').addEventListener('click', () => modalRules.classList.remove('hidden'));
+            document.getElementById('btn-stats').addEventListener('click', () => {
+                updateStatsModal();
+                modalStats.classList.remove('hidden');
+            });
+
+            document.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modalRules.classList.add('hidden');
+                    modalStats.classList.add('hidden');
+                });
+            });
+
+            document.getElementById('btn-play-again').addEventListener('click', () => {
+                modalVictory.classList.add('hidden');
+                initGame(false);
+            });
+
+            document.getElementById('btn-share').addEventListener('click', shareResult);
+        }
+
+        // Handle Character Search & Autocomplete
+        function handleSearchInput() {
+            const query = searchInput.value.trim().toLowerCase();
+            if (!query) {
+                autocompleteList.classList.add('hidden');
+                return;
+            }
+
+            // Filter out characters already guessed
+            const availableChars = CHARACTERS.filter(c => 
+                !guesses.some(g => g.id === c.id) && 
+                c.name.toLowerCase().includes(query)
+            );
+
+            if (availableChars.length === 0) {
+                autocompleteList.classList.add('hidden');
+                return;
+            }
+
+            autocompleteList.innerHTML = '';
+            availableChars.forEach(char => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-3 px-4 py-3 hover:bg-slate-700/80 cursor-pointer transition text-sm';
+                item.innerHTML = `
+                    <span class="text-xl">${char.icon}</span>
+                    <span class="font-semibold text-white">${char.name}</span>
+                `;
+                item.addEventListener('click', () => {
+                    makeGuess(char);
+                    searchInput.value = '';
+                    autocompleteList.classList.add('hidden');
+                });
+                autocompleteList.appendChild(item);
+            });
+
+            autocompleteList.classList.remove('hidden');
+        }
+
+        // Process a Character Guess
+        function makeGuess(character) {
+            if (isGameOver) return;
+
+            guesses.unshift(character); // Add to top
+            renderGuesses();
+            updateHintButton();
+
+            // Check Win Condition
+            if (character.id === secretCharacter.id) {
+                handleVictory();
+            }
+        }
+
+        // Render Guess Grid Row
+        function renderGuesses() {
+            guessesContainer.innerHTML = '';
+
+            guesses.forEach((char) => {
+                const row = document.createElement('div');
+                row.className = 'grid grid-cols-6 gap-1 md:gap-2 animate-popIn';
+
+                // Comparison checks
+                const genderMatch = char.gender === secretCharacter.gender;
+                
+                // Race match (exact vs partial)
+                const raceExact = arrayEquals(char.race, secretCharacter.race);
+                const racePartial = !raceExact && char.race.some(r => secretCharacter.race.includes(r));
+
+                // Affiliation match
+                const affExact = arrayEquals(char.affiliation, secretCharacter.affiliation);
+                const affPartial = !affExact && char.affiliation.some(a => secretCharacter.affiliation.includes(a));
+
+                // Saga match
+                const sagaMatch = char.saga === secretCharacter.saga;
+                const sagaDiff = SAGA_ORDER[char.saga] - SAGA_ORDER[secretCharacter.saga];
+
+                // Status match
+                const statusMatch = char.status === secretCharacter.status;
+
+                row.innerHTML = `
+                    <!-- Name & Avatar -->
+                    <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl p-2 flex flex-col items-center justify-center text-center shadow">
+                        <span class="text-xl md:text-2xl mb-0.5">${char.icon}</span>
+                        <span class="font-bold text-[10px] md:text-xs text-white leading-tight truncate w-full">${char.name}</span>
+                    </div>
+
+                    <!-- Gender -->
+                    <div class="${getMatchClass(genderMatch, false)} rounded-xl p-1 md:p-2 flex items-center justify-center text-center font-bold text-[11px] md:text-xs shadow">
+                        ${char.gender}
+                    </div>
+
+                    <!-- Race -->
+                    <div class="${getMatchClass(raceExact, racePartial)} rounded-xl p-1 md:p-2 flex items-center justify-center text-center font-bold text-[10px] md:text-xs shadow">
+                        ${char.race.join(', ')}
+                    </div>
+
+                    <!-- Affiliation -->
+                    <div class="${getMatchClass(affExact, affPartial)} rounded-xl p-1 md:p-2 flex items-center justify-center text-center font-bold text-[10px] md:text-xs shadow">
+                        ${char.affiliation.join(', ')}
+                    </div>
+
+                    <!-- Saga -->
+                    <div class="${getMatchClass(sagaMatch, false)} rounded-xl p-1 md:p-2 flex flex-col items-center justify-center text-center font-bold text-[10px] md:text-xs shadow relative">
+                        <span>${char.saga}</span>
+                        ${!sagaMatch ? `<span class="text-[9px] opacity-80">${sagaDiff > 0 ? '↓ Plus tôt' : '↑ Plus tard'}</span>` : ''}
+                    </div>
+
+                    <!-- Status -->
+                    <div class="${getMatchClass(statusMatch, false)} rounded-xl p-1 md:p-2 flex items-center justify-center text-center font-bold text-[11px] md:text-xs shadow">
+                        ${char.status}
+                    </div>
+                `;
+
+                guessesContainer.appendChild(row);
+            });
+        }
+
+        // Helper for Tailwind Match Colors
+        function getMatchClass(exact, partial) {
+            if (exact) return 'bg-emerald-600 border border-emerald-400 text-white animate-flip';
+            if (partial) return 'bg-amber-600 border border-amber-400 text-white animate-flip';
+            return 'bg-rose-700 border border-rose-500 text-white animate-flip';
+        }
+
+        // Arrays comparison helper
+        function arrayEquals(a, b) {
+            if (a.length !== b.length) return false;
+            return a.every(val => b.includes(val));
+        }
+
+        // Hint logic
+        function updateHintButton() {
+            if (hintUsed) {
+                btnHint.disabled = true;
+                hintText.textContent = "Indice débloqué";
+                return;
+            }
+
+            if (guesses.length >= 3) {
+                btnHint.disabled = false;
+                hintText.textContent = "Débloquer l'indice !";
+                btnHint.classList.add('animate-pulse');
+            } else {
+                btnHint.disabled = true;
+                btnHint.classList.remove('animate-pulse');
+                hintText.textContent = `Indice dans ${3 - guesses.length} essai(s)`;
+            }
+        }
+
+        function revealHint() {
+            if (guesses.length < 3 || hintUsed) return;
+
+            hintUsed = true;
+            hintContent.textContent = secretCharacter.hint;
+            hintBox.classList.remove('hidden');
+            updateHintButton();
+        }
+
+        // Handle Victory
+        function handleVictory() {
+            isGameOver = true;
+            searchInput.disabled = true;
+
+            // Trigger Confetti effect
+            launchConfetti();
+
+            // Save stats
+            saveStats(guesses.length);
+
+            // Pop Victory Modal after slight delay
+            setTimeout(() => {
+                document.getElementById('victory-avatar').textContent = secretCharacter.icon;
+                document.getElementById('victory-char-name').textContent = secretCharacter.name;
+                document.getElementById('victory-attempts').textContent = guesses.length;
+                document.getElementById('victory-mode').textContent = isDailyMode ? 'Quotidien' : 'Aléatoire';
+                modalVictory.classList.remove('hidden');
+            }, 600);
+        }
+
+        // Local Storage Stats Logic
+        function saveStats(attempts) {
+            let stats = JSON.parse(localStorage.getItem(STORAGE_KEY_STATS)) || { played: 0, wins: 0, streak: 0 };
+            stats.played += 1;
+            stats.wins += 1;
+            stats.streak += 1;
+            localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(stats));
+        }
+
+        function updateStatsModal() {
+            let stats = JSON.parse(localStorage.getItem(STORAGE_KEY_STATS)) || { played: 0, wins: 0, streak: 0 };
+            document.getElementById('stat-played').textContent = stats.played;
+            document.getElementById('stat-wins').textContent = stats.wins;
+            document.getElementById('stat-streak').textContent = stats.streak;
+        }
+
+        // Share result formatted as emoji blocks
+        function shareResult() {
+            let text = `DBZdle (${isDailyMode ? 'Quotidien' : 'Aléatoire'}) - ${guesses.length} essai(s) 🐉\n\n`;
+            
+            // Generate visual grid in emoji
+            guesses.slice().reverse().forEach(g => {
+                const gender = g.gender === secretCharacter.gender ? '🟩' : '🟥';
+                const race = arrayEquals(g.race, secretCharacter.race) ? '🟩' : (g.race.some(r => secretCharacter.race.includes(r)) ? '🟧' : '🟥');
+                const aff = arrayEquals(g.affiliation, secretCharacter.affiliation) ? '🟩' : (g.affiliation.some(a => secretCharacter.affiliation.includes(a)) ? '🟧' : '🟥');
+                const saga = g.saga === secretCharacter.saga ? '🟩' : '🟥';
+                const status = g.status === secretCharacter.status ? '🟩' : '🟥';
+                text += `${gender}${race}${aff}${saga}${status}\n`;
+            });
+
+            text += `\nJoue sur DBZdle !`;
+
+            // Clipboard fallback logic
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            showToast("Résultats copiés dans le presse-papier !");
+        }
+
+        // Toast notification
+        function showToast(msg) {
+            document.getElementById('toast-message').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        // Canvas Confetti Animation
+        function launchConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#ff6b00', '#fbc02d', '#2e7d32', '#ffffff', '#1e3c72'];
+
+            for (let i = 0; i < 100; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.7) * 14,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 100
+                });
+            }
+
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+
+                particles.forEach(p => {
+                    if (p.life > 0) {
+                        alive = true;
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += 0.3; // Gravity
+                        p.life -= 1.5;
+                        ctx.fillStyle = p.color;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+
+                if (alive) {
+                    requestAnimationFrame(animateConfetti);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            animateConfetti();
+        }
+    </script>
+</body>
+</html>
